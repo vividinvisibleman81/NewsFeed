@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RSS Reader</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f0f0f;--surface:#1a1a1a;--border:#2e2e2e;--accent:#e8c97a;--accent2:#7ac8e8;--text:#e8e4dc;--muted:#888;--danger:#e87a7a;--ok:#7ae8a8;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Serif JP',serif;min-height:100vh;}
+#setupScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.setup-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:36px;max-width:620px;width:100%;display:flex;flex-direction:column;gap:18px;}
+.setup-card h1{font-family:'Space Mono',monospace;font-size:1rem;color:var(--accent);letter-spacing:.15em;}
+.setup-card h2{font-family:'Space Mono',monospace;font-size:.78rem;color:var(--accent2);letter-spacing:.1em;margin-top:4px;}
+.steps{display:flex;flex-direction:column;gap:10px;}
+.step{display:flex;gap:12px;align-items:flex-start;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:2px;}
+.step-num{font-family:'Space Mono',monospace;font-size:.72rem;background:var(--accent);color:#0f0f0f;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.step-body{display:flex;flex-direction:column;gap:5px;}
+.step-body p{font-size:.8rem;line-height:1.65;color:var(--text);}
+.step-body a{color:var(--accent2);}
+.step-body strong{color:var(--accent);}
+.url-row{display:flex;gap:8px;align-items:center;margin-top:5px;}
+.url-row input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:2px;color:var(--text);font-family:'Space Mono',monospace;font-size:.73rem;padding:8px 10px;}
+.url-row input:focus{outline:none;border-color:var(--accent);}
+#appScreen{display:none;}
+header{border-bottom:1px solid var(--border);padding:16px 26px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:100;}
+header h1{font-family:'Space Mono',monospace;font-size:.95rem;color:var(--accent);letter-spacing:.15em;}
+.header-right{display:flex;gap:8px;align-items:center;}
+.proxy-tag{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--ok);border:1px solid var(--ok);padding:3px 8px;border-radius:2px;opacity:.7;}
+.btn{font-family:'Space Mono',monospace;font-size:.7rem;padding:7px 13px;border-radius:2px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text);transition:all .15s;letter-spacing:.05em;}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn.primary{background:var(--accent);color:#0f0f0f;border-color:var(--accent);font-weight:700;}
+.btn.primary:hover{background:#f0d888;}
+.layout{display:grid;grid-template-columns:270px 1fr;min-height:calc(100vh - 58px);}
+.sidebar{border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:14px;}
+.sidebar-label{font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-bottom:6px;}
+.feed-list{display:flex;flex-direction:column;gap:3px;}
+.feed-item{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:2px;border:1px solid transparent;cursor:pointer;transition:all .15s;}
+.feed-item:hover{background:var(--surface);border-color:var(--border);}
+.feed-item.active{border-color:var(--accent);background:rgba(232,201,122,.07);}
+.feed-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.feed-name{font-size:.76rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.feed-count{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted);}
+.feed-del{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--muted);cursor:pointer;padding:2px 4px;border-radius:2px;transition:all .15s;border:1px solid transparent;}
+.feed-del:hover{color:var(--danger);border-color:var(--danger);}
+.main{display:flex;flex-direction:column;}
+.toolbar{padding:12px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.search-wrap{position:relative;flex:1;max-width:320px;}
+.search-wrap input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:2px;color:var(--text);font-family:'Space Mono',monospace;font-size:.7rem;padding:7px 10px 7px 26px;}
+.search-wrap input:focus{outline:none;border-color:var(--accent);}
+.search-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.68rem;pointer-events:none;}
+.sort-select{background:var(--surface);border:1px solid var(--border);border-radius:2px;color:var(--text);font-family:'Space Mono',monospace;font-size:.66rem;padding:7px 10px;cursor:pointer;}
+.sort-select:focus{outline:none;border-color:var(--accent);}
+.articles-grid{padding:18px 22px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-content:start;}
+.article-card{background:var(--surface);border:1px solid var(--border);border-radius:2px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s,transform .15s;animation:fadeIn .25s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+.article-card:hover{border-color:var(--accent2);transform:translateY(-2px);}
+.article-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+.source-badge{font-family:'Space Mono',monospace;font-size:.57rem;padding:2px 6px;border-radius:2px;color:#0f0f0f;font-weight:700;letter-spacing:.04em;}
+.article-date{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);margin-left:auto;}
+.article-title{font-size:.85rem;line-height:1.55;font-weight:700;}
+.article-title a{color:var(--text);text-decoration:none;transition:color .15s;}
+.article-title a:hover{color:var(--accent);}
+.article-desc{font-size:.73rem;color:var(--muted);line-height:1.65;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.article-thumb{width:100%;max-height:130px;object-fit:cover;border-radius:2px;opacity:.85;}
+.status-bar{padding:9px 22px;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:auto;}
+.center-msg{padding:50px;text-align:center;color:var(--muted);font-family:'Space Mono',monospace;font-size:.75rem;letter-spacing:.1em;grid-column:1/-1;}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:8px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.error-msg{font-family:'Space Mono',monospace;font-size:.66rem;color:var(--danger);padding:5px 9px;border:1px solid var(--danger);border-radius:2px;background:rgba(232,122,122,.06);}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:2px;padding:24px;width:440px;max-width:95vw;display:flex;flex-direction:column;gap:13px;}
+.modal h2{font-family:'Space Mono',monospace;font-size:.8rem;letter-spacing:.1em;color:var(--accent);}
+.input-group{display:flex;flex-direction:column;gap:4px;}
+.input-group label{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.1em;}
+.input-group input{background:var(--bg);border:1px solid var(--border);border-radius:2px;color:var(--text);font-family:'Space Mono',monospace;font-size:.73rem;padding:8px 10px;width:100%;}
+.input-group input:focus{outline:none;border-color:var(--accent);}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div id="setupScreen">
+  <div class="setup-card">
+    <h1>▶ RSS_READER — 初期設定</h1>
+    <h2>// Google Apps Script をプロキシとして使います（無料・5分で完了）</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body"><p><a href="https://script.google.com/home/start" target="_blank">script.google.com</a> を開き、「<strong>新しいプロジェクト</strong>」をクリック</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body"><p>エディタ内の既存コードをすべて削除し、同梱の <strong>gas_proxy.gs</strong> の内容を貼り付けて保存（Ctrl+S）</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body"><p>右上「<strong>デプロイ</strong>」→「<strong>新しいデプロイ</strong>」<br>種類：<strong>ウェブアプリ</strong> ／ アクセス：<strong>全員</strong> → 「デプロイ」</p></div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <p>表示された「ウェブアプリ URL」を貼り付けて「スタート」</p>
+          <div class="url-row">
+            <input type="url" id="proxyUrlInput" placeholder="https://script.google.com/macros/s/...">
+            <button class="btn primary" onclick="startApp()">スタート →</button>
+          </div>
+          <div id="setupError" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="appScreen">
+  <header>
+    <h1>▶ RSS_READER</h1>
+    <div class="header-right">
+      <span class="proxy-tag">GAS ●</span>
+      <button class="btn" style="font-size:.62rem;padding:5px 10px;" onclick="resetProxy()">設定変更</button>
+      <button class="btn" style="font-size:.62rem;padding:5px 10px;" onclick="refreshAll()">↺ 更新</button>
+      <button class="btn primary" style="font-size:.62rem;padding:5px 10px;" onclick="openModal()">＋ フィード追加</button>
+    </div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <div>
+        <div class="sidebar-label">フィード一覧</div>
+        <div class="feed-list" id="feedList"></div>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="記事を検索..." oninput="renderArticles()">
+        </div>
+        <select class="sort-select" id="sortSelect" onchange="renderArticles()">
+          <option value="date_desc">新しい順</option>
+          <option value="date_asc">古い順</option>
+          <option value="source">ソース順</option>
+        </select>
+      </div>
+      <div class="articles-grid" id="articlesGrid"></div>
+      <div class="status-bar" id="statusBar"></div>
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h2>// フィードを追加</h2>
+    <div class="input-group"><label>フィード名</label><input type="text" id="feedNameInput" placeholder="例: NHKニュース"></div>
+    <div class="input-group"><label>RSS URL</label><input type="url" id="feedUrlInput" placeholder="https://..."></div>
+    <div id="addFeedError"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+      <button class="btn primary" onclick="addFeed()">追加</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS=['#e8c97a','#7ac8e8','#a8e87a','#e87ac8','#c87ae8','#e8a87a','#7ae8c8'];
+const DEFAULT_FEEDS=[
+  {name:'NHK 主要ニュース',url:'https://www.nhk.or.jp/rss/news/cat0.xml'},
+  {name:'Gigazine',url:'https://gigazine.net/news/rss_2.0/'},
+];
+let PROXY_URL=localStorage.getItem('rss_proxy_url')||'';
+let feeds=JSON.parse(localStorage.getItem('rss_feeds')||'null')||DEFAULT_FEEDS;
+let articles=[],feedErrors={},activeFeed='all',loading=false;
+function save(){localStorage.setItem('rss_feeds',JSON.stringify(feeds));}
+
+async function startApp(){
+  const url=document.getElementById('proxyUrlInput').value.trim();
+  const errEl=document.getElementById('setupError');
+  errEl.innerHTML='';
+  if(!url.startsWith('https://script.google.com/macros/')){
+    errEl.innerHTML='<div class="error-msg">GASのウェブアプリURLを入力してください</div>';return;
+  }
+  errEl.innerHTML='<div style="color:var(--muted);font-family:Space Mono,monospace;font-size:.7rem">接続テスト中...</div>';
+  try{
+    const res=await fetch(url+'?url='+encodeURIComponent('https://www.nhk.or.jp/rss/news/cat0.xml'),{signal:AbortSignal.timeout(15000)});
+    const data=await res.json();
+    if(data.status!=='ok')throw new Error(data.message||'応答エラー');
+  }catch(e){
+    errEl.innerHTML='<div class="error-msg">接続テスト失敗: '+e.message+'<br>GASの公開設定（アクセス：全員）を確認してください</div>';return;
+  }
+  PROXY_URL=url;
+  localStorage.setItem('rss_proxy_url',PROXY_URL);
+  showApp();
+}
+
+function resetProxy(){
+  localStorage.removeItem('rss_proxy_url');PROXY_URL='';
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('setupScreen').style.display='flex';
+}
+
+function showApp(){
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('appScreen').style.display='block';
+  refreshAll();
+}
+
+async function fetchFeedItems(rssUrl){
+  const res=await fetch(PROXY_URL+'?url='+encodeURIComponent(rssUrl),{signal:AbortSignal.timeout(15000)});
+  const data=await res.json();
+  if(data.status!=='ok')throw new Error(data.message||'proxy error');
+  return data.items;
+}
+
+async function fetchFeed(feed){
+  const idx=feeds.indexOf(feed);
+  try{
+    const items=await fetchFeedItems(feed.url);
+    articles=articles.filter(a=>a._feedIdx!==idx);
+    articles.push(...items.map(i=>({...i,_feedIdx:idx})));
+    delete feedErrors[idx];
+  }catch(e){feedErrors[idx]=e.message;}
+}
+
+async function refreshAll(){
+  loading=true;articles=[];feedErrors={};renderArticles();
+  await Promise.all(feeds.map(f=>fetchFeed(f)));
+  loading=false;renderFeedList();renderArticles();
+}
+
+function openModal(){
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('feedNameInput').value='';
+  document.getElementById('feedUrlInput').value='';
+  document.getElementById('addFeedError').innerHTML='';
+  setTimeout(()=>document.getElementById('feedNameInput').focus(),50);
+}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
+
+async function addFeed(){
+  const name=document.getElementById('feedNameInput').value.trim();
+  const url=document.getElementById('feedUrlInput').value.trim();
+  const errEl=document.getElementById('addFeedError');errEl.innerHTML='';
+  if(!name||!url){errEl.innerHTML='<div class="error-msg">名前とURLを入力してください</div>';return;}
+  if(feeds.find(f=>f.url===url)){errEl.innerHTML='<div class="error-msg">このURLはすでに登録されています</div>';return;}
+  feeds.push({name,url});save();closeModal();renderFeedList();
+  const idx=feeds.length-1;
+  try{const items=await fetchFeedItems(url);articles.push(...items.map(i=>({...i,_feedIdx:idx})));delete feedErrors[idx];}
+  catch(e){feedErrors[idx]=e.message;}
+  renderFeedList();renderArticles();
+}
+
+function deleteFeed(idx,e){
+  e.stopPropagation();feeds.splice(idx,1);
+  articles=articles.filter(a=>a._feedIdx!==idx);
+  articles.forEach(a=>{if(a._feedIdx>idx)a._feedIdx--;});
+  const ne={};Object.entries(feedErrors).forEach(([k,v])=>{const ki=+k;if(ki!==idx)ne[ki>idx?ki-1:ki]=v;});
+  feedErrors=ne;save();if(activeFeed===idx)activeFeed='all';
+  renderFeedList();renderArticles();
+}
+
+function selectFeed(idx){activeFeed=idx;renderFeedList();renderArticles();}
+
+function renderFeedList(){
+  const list=document.getElementById('feedList');
+  let html=`<div class="feed-item ${activeFeed==='all'?'active':''}" onclick="selectFeed('all')">
+    <span class="feed-dot" style="background:var(--accent)"></span>
+    <span class="feed-name">すべてのフィード</span>
+    <span class="feed-count">${articles.length}</span></div>`;
+  feeds.forEach((f,i)=>{
+    const color=COLORS[i%COLORS.length];
+    const count=articles.filter(a=>a._feedIdx===i).length;
+    html+=`<div class="feed-item ${activeFeed===i?'active':''}" onclick="selectFeed(${i})">
+      <span class="feed-dot" style="background:${feedErrors[i]?'var(--danger)':color}"></span>
+      <span class="feed-name" title="${f.name}">${f.name}</span>
+      <span class="feed-count">${feedErrors[i]?'!':count}</span>
+      <span class="feed-del" onclick="deleteFeed(${i},event)">✕</span></div>`;
+  });
+  list.innerHTML=html;
+}
+
+function renderArticles(){
+  const grid=document.getElementById('articlesGrid');
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const sort=document.getElementById('sortSelect').value;
+  if(loading){grid.innerHTML='<div class="center-msg"><div class="spinner"></div><br>読み込み中...</div>';return;}
+  let filtered=activeFeed==='all'?[...articles]:articles.filter(a=>a._feedIdx===activeFeed);
+  if(q)filtered=filtered.filter(a=>(a.title||'').toLowerCase().includes(q)||(a.description||'').toLowerCase().includes(q));
+  if(sort==='date_desc')filtered.sort((a,b)=>new Date(b.pubDate||0)-new Date(a.pubDate||0));
+  else if(sort==='date_asc')filtered.sort((a,b)=>new Date(a.pubDate||0)-new Date(b.pubDate||0));
+  else filtered.sort((a,b)=>a._feedIdx-b._feedIdx);
+  const errHtml=Object.entries(feedErrors)
+    .filter(([i])=>activeFeed==='all'||+i===activeFeed)
+    .map(([i,msg])=>`<div class="center-msg" style="padding:8px 16px;grid-column:1/-1"><span class="error-msg">「${feeds[+i]?.name}」失敗: ${msg}</span></div>`)
+    .join('');
+  if(filtered.length===0){grid.innerHTML=errHtml||'<div class="center-msg">記事がありません</div>';updateStatus(0);return;}
+  grid.innerHTML=errHtml+filtered.map(a=>{
+    const color=COLORS[a._feedIdx%COLORS.length];
+    const feed=feeds[a._feedIdx];
+    let date='';
+    if(a.pubDate){const d=new Date(a.pubDate);if(!isNaN(d))date=d.toLocaleDateString('ja-JP',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});}
+    const desc=(a.description||'').replace(/<[^>]+>/g,'').substring(0,180);
+    const thumb=a.thumbnail||'';
+    return `<div class="article-card">
+      ${thumb?`<img class="article-thumb" src="${thumb}" loading="lazy" onerror="this.style.display='none'">`:''}
+      <div class="article-meta">
+        <span class="source-badge" style="background:${color}">${feed?.name||''}</span>
+        ${date?`<span class="article-date">${date}</span>`:''}
+      </div>
+      <div class="article-title"><a href="${a.link}" target="_blank" rel="noopener">${a.title||'(タイトルなし)'}</a></div>
+      ${desc?`<div class="article-desc">${desc}</div>`:''}
+    </div>`;
+  }).join('');
+  updateStatus(filtered.length);
+}
+
+function updateStatus(count){
+  const errN=Object.keys(feedErrors).length;
+  document.getElementById('statusBar').textContent=
+    `${feeds.length} フィード ／ 計 ${articles.length} 件 ／ 表示 ${count} 件`+(errN?` ／ ⚠ ${errN} フィード失敗`:'');
+}
+
+if(PROXY_URL){showApp();}
+</script>
+</body>
+</html>
